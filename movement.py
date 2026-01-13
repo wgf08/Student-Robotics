@@ -2,22 +2,29 @@ import math
 import time
 from sr.robot3 import Robot
 
-def move_straight(motors,power, forwards = True):
+def halt(motors):
+    motors[1].power(0)
+    motors[2].power(0)
+    motors[3].power(0)
+
+
+def move_straight(motors,power, forwards = True, duration = None):
     if not forwards: power = -power
     motors[1].power(-power)
     motors[2].power(0)
     motors[3].power(power)
+    if duration is None:
+        return
+    else:
+        time.sleep(duration)
+        halt()
+        return
 
 def spin(motors, power, clockwise = True):
     if not clockwise: power = -power
     motors[1].power(power)
     motors[2].power(power)
     motors[3].power(power)
-
-def halt(motors):
-    motors[1].power(0)
-    motors[2].power(0)
-    motors[3].power(0)
 
 def move_angle(motors, power, theta):
     vals = [

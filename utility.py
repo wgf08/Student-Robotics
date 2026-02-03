@@ -1,46 +1,83 @@
 import math
 import time
-from sr.robot3 import Robot
 from movement import *
-import sys
+from info import * 
 
-def sorted_boxes(robot):
+def start_timer():
+    return time.time()
+
+def time_left(start_time):
+    time_elapsed = start_time-time.time()
+    return 150-time_elapsed
+
+def set_zone(robot):
     """
-    Returns a list of boxes sorted by type and then distance 
+    Returns:
+        A tuple containing the zone and the fiducial markers inside this zone
     """
-    pass
+    if robot.mode == "COMP":
+        zone = robot.zone
+    else:
+        zone = 0
+    return (zone, ZONE_FIDUCIAL_MARKERS[zone])
+
+def sorted_boxes(markers):
+    """
+    Returns a list of boxes sorted by type and then distance. [samples, acids, bases, walls]
+    """
+    acids = []
+    bases = []
+    walls = []
+
+    for marker in markers:
+        if 0 <= marker.id <= 19:
+            walls.append(marker)
+        elif 100 <= marker.id <= 139:
+            acids.append(marker)
+        elif 140 <= marker.id <= 179:
+            bases.append(marker)
+
+    # Create samples by concatenating acids and bases
+    samples = acids + bases
+
+    # Sort all lists by marker.distance
+    samples.sort(key=lambda m: m.distance)
+    acids.sort(key=lambda m: m.distance)
+    bases.sort(key=lambda m: m.distance)
+    walls.sort(key=lambda m: m.distance)
+
+    return [samples, acids, bases, walls]
 
 def find_marker(markers, marker_id):
+    """
+    Returns a marker given its id
+    """
+
     for marker in markers:
         if marker.id == marker_id:
             return marker
-    return FileExistsError
+    return None
 
-def consume(robot, marker_id, motors):
-    markers = robot.camera.see()
+def find_position(markers):
+    """
+    Returns:
+        (marker_id, distance_m, marker_angle)
+    or None if no suitable marker is visible
 
-    while True:
-        try:
-            box = find_marker(markers, marker_id)
-        except FileExistsError:
-            print("Wouldn't you like to know... weatherboy!")
-            sys.quit()
-        if box.horizontal_angle > math.pi/12:
-            spin(motors, 1, False)
-            time.sleep(0.03)
-        elif box.horizontal_angle < -math.pi/12:
-            spin(motors, 1, True)
-            time.sleep(0.03)
-        else:
-            break
-    duration = (3*(box.distance+13))/(80*math.pi)
-    move_straight(motors,1,forwards=True, duration=duration)
-    move_straight(motors,1)
-    while True:
-        try:
-            box = find_marker(markers, marker_id)
-        except FileExistsError:
-            time.sleep(0.5)
-            halt()
+    marker angle:
+        betwen -pi and pi
+    """
+
+    #Get wall Fiducial Markers and sort by distance, taking the nearest marker
+    markers = [m for m in markers if m.id in MARKER_FACING]
+    if not markers:
+        return None
+    m = min(markers, key=lambda m: m.position.distance)
+    md = m.position.distance
+    ma = m.position.horizontal_angle
+
+    # Robot facing angle in arena frame
+
+    return m.id, md, ma
 
 

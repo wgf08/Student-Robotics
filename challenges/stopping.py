@@ -1,18 +1,23 @@
-from sr.robot3 import Robot
+import movement
+import time
+from sr.robot3 import  Robot
 
-# Setup the robot so that we can control it
+#set up robot so we can control it
 robot = Robot()
-motor_board = robot.motor_boards
 
-motor_board.motors[0].power = 1
-motor_board.motors[1].power = 1
+srlnums = ["srABC1", "srXYZ1"]
+mb1 = robot.motor_boards[srlnums[0]]
+mb2 = robot.motor_boards[srlnums[1]]
+motor1 = mb1.motors[0]
+motor2 = mb1.motors[1]
+motor3 = mb2.motors[0]
+motors = [motor1, motor2, motor3]
 
-while True:
-    #get all fiducial markers
-    markers = robot.camera.see()
-    for marker in markers:
-        if marker.position.distance <= 100:
-            motor_board.motors[0].power = 0
-            motor_board.motors[1].power = 0
-        else:
-            pass
+movement.move_straight(motors, 1)
+is_close = False
+
+while is_close == False:
+    distance_mm = robot.arduino.ultrasound_measure(9, 10)
+    if distance_mm != 0 and distance_mm <= 90:
+        movement.halt(motors)
+        is_close = True

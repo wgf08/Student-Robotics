@@ -1,0 +1,139 @@
+Metadata-Version: 2.4
+Name: april_vision
+Version: 3.0.0
+Summary: An AprilTags wrapper with camera discovery and axis conversion.
+Author: Will Barber, Joshua Perriman
+License: MIT License
+        
+        Copyright (c) 2022 Will Barber
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+        
+Project-URL: Repository, https://github.com/WillB97/april_vision
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Scientific/Engineering :: Image Recognition
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: OS Independent
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Typing :: Typed
+Classifier: License :: OSI Approved :: MIT License
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: pyapriltags<3.4.4,>=3.4.3
+Requires-Dist: numpy<3,>=2
+Requires-Dist: pyquaternion<1,>=0.9.9
+Requires-Dist: winrt-Windows.Devices.Enumeration<3,>=2.3.0; platform_system == "Windows"
+Requires-Dist: winrt-Windows.Foundation<3,>=2.3.0; platform_system == "Windows"
+Requires-Dist: winrt-Windows.Foundation.Collections<3,>=2.3.0; platform_system == "Windows"
+Provides-Extra: dev
+Requires-Dist: poethepoet<1,>=0.0.1; extra == "dev"
+Requires-Dist: ruff<0.4,>=0.3.0; extra == "dev"
+Requires-Dist: mypy==1.9.0; extra == "dev"
+Requires-Dist: build; extra == "dev"
+Requires-Dist: types-Pillow; extra == "dev"
+Requires-Dist: types-tabulate; extra == "dev"
+Requires-Dist: types-reportlab==4.2.5.20241002; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-cov; extra == "dev"
+Requires-Dist: PyMuPDF==1.24.14; extra == "dev"
+Provides-Extra: cli
+Requires-Dist: Pillow<11,>=9.4.0; extra == "cli"
+Requires-Dist: tabulate<1,>=0.9.0; extra == "cli"
+Requires-Dist: font-roboto>=0.0.1; extra == "cli"
+Requires-Dist: reportlab<5,>=4; extra == "cli"
+Requires-Dist: progress==1.6; extra == "cli"
+Provides-Extra: opencv
+Requires-Dist: opencv-python-headless<5,>=4.10; extra == "opencv"
+Dynamic: license-file
+
+# april_vision
+
+[![Lint & build](https://github.com/WillB97/april_vision/actions/workflows/test_build.yml/badge.svg)](https://github.com/WillB97/april_vision/actions/workflows/test_build.yml)
+[![PyPI version](https://badge.fury.io/py/april-vision.svg)](https://badge.fury.io/py/april-vision)
+[![MIT license](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat)](https://opensource.org/licenses/MIT)
+
+A fiducial marker system used by Student Robotics.
+Uses [april tag](https://april.eecs.umich.edu/software/apriltag) markers to provide detection, pose and distance estimation for these markers.
+
+## Installation
+
+This library requires OpenCV but the default installation does not install OpenCV. There are a few different versions of OpenCV with different install sizes, to install the default package without OpenCV, run the following command.
+
+```bash
+pip install april-vision
+```
+
+To install the lightweight headless version OpenCV install the library with the following command.
+
+```bash
+pip install april-vision[opencv]
+```
+
+If you want to perform some of the more advanced features of the CLI (live view of the camera) you need the full version of OpenCV.
+The CLI dependecies can be installed with the following command.
+
+```bash
+pip install april-vision[cli]
+```
+
+Then the full version of OpenCV can then be installed with the following command.
+
+```bash
+pip install opencv-python>=4.8
+```
+
+All the versions of OpenCV (standard, headless and contrib) clash so you should only have one installed.
+
+## Example
+
+```python
+from april_vision.examples.camera import setup_cameras
+
+# Markers 0-100 are 80mm in size
+tag_sizes = {
+    range(0, 100): 80
+}
+
+# Returns a dict of index and camera
+cameras = setup_cameras(tag_sizes)
+
+if len(cameras) == 0:
+    print("No cameras found")
+
+for serial, cam in cameras.items():
+    print(cam.model, serial)
+    print(cam.see())
+```
+
+## Tools
+
+When installed april_vision can be used on the command line providing the following list of useful tools. Each of the tools contain help text on correct usage accessed via the `-h` argument.
+
+```bash
+annotate_image
+annotate_video
+calibrate
+live
+marker_generator
+vision_debug
+tools
+    family_details
+    list_cameras
+```

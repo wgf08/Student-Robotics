@@ -9,7 +9,6 @@ distance_mm = robot.arduino.ultrasound_measure(9, 10)
 
 # Set each LED to a different colour
 robot.kch.leds[LED_A].colour = Colour.OFF
-
 curr_state = "OFF"
 
 while True:

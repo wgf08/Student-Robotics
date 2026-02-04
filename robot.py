@@ -15,8 +15,8 @@ zone = set_zone(robot)
 mb1 = robot.motor_boards[srlnums[0]]
 mb2 = robot.motor_boards[srlnums[1]]
 motor1 = mb2.motors[0]
-motor2 = mb1.motors[1]
-motor3 = mb1.motors[0]
+motor2 = mb1.motors[0]
+motor3 = mb1.motors[1]
 motors = [motor1,motor2,motor3]
 
 CURRENT_BASE_VALUE = 0

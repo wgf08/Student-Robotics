@@ -4,7 +4,7 @@ TARGETED_SAMPLE = "ACID"
 
 THRESHOLD_TIMES = [20]
 
-srlnums = ["SR0KEH","SR0VF6"]
+srlnums = [ "SR0KEH","SR0VF6"]
 
 MARKER_FACING = {
 

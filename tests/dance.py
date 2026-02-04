@@ -9,4 +9,4 @@ def dance(motors, power, duration):
     print(f'Im dancing!')
     halt(motors)
     spin(motors,power,duration)
-    halt()
+    halt(motors)

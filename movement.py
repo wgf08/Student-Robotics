@@ -3,20 +3,20 @@ import math
 import time
 
 def halt(motors):
+    motors[0].power = BRAKE
     motors[1].power = BRAKE
     motors[2].power = BRAKE
-    motors[3].power = BRAKE
 
 def coast(motors):
+    motors[0].power = COAST
     motors[1].power = COAST
     motors[2].power = COAST
-    motors[3].power = COAST
 
 def move_straight(motors,power, forwards = True, duration = None):
     if not forwards: power = -power
-    motors[1].power = -power
-    motors[2].power = 0
-    motors[3].power = power
+    motors[0].power = -power
+    motors[1].power = 0
+    motors[2].power = power
     if duration is None:
         return
     else:
@@ -26,9 +26,9 @@ def move_straight(motors,power, forwards = True, duration = None):
 
 def spin(motors, power, clockwise = True, duration = None):
     if not clockwise: power = -power
+    motors[0].power = power
     motors[1].power = power
     motors[2].power = power
-    motors[3].power = power
     if duration:
         time.sleep(duration)
         halt(motors)
@@ -46,9 +46,9 @@ def move_angle(motors, power, theta):
     max_mag = max(abs(v) for v in vals)
     vals = [v / max_mag for v in vals]
 
-    motors[1].power = power * vals[0]
-    motors[2].power = power * vals[1]
-    motors[3].power = power * vals[2]
+    motors[0].power = power * vals[0]
+    motors[1].power = power * vals[1]
+    motors[2].power = power * vals[2]
 
 def rotate_angle(theta, motors, power, clockwise = True):
     spin(motors,power,clockwise)

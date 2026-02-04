@@ -21,7 +21,7 @@ def move_straight(motors,power, forwards = True, duration = None):
         return
     else:
         time.sleep(duration)
-        halt()
+        halt(motors)
         return
 
 def spin(motors, power, clockwise = True, duration = None):

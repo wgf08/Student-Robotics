@@ -45,7 +45,7 @@ def consume(robot, marker_id, motors):
             box = find_marker(markers, marker_id)
         except:
             time.sleep(0.1)
-            halt()
+            halt(motors)
 
 def avoid(robot, marker_id, motors):
 

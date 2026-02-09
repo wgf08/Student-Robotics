@@ -13,7 +13,7 @@ def lock_on(robot, motors):
 
     # Move directly in that direction
     move_angle(motors, 1, theta)
-    robot.sleep(1)
+    robot.sleep(3)
     halt(motors)
 
     return True

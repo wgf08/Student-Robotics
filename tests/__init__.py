@@ -1,8 +1,9 @@
-from .dance import dance
-from .lock_on import lock_on
-from .fov import fov
+from .move_test import dance
+from .follow_test import lock_on
+from .view_test import fov
 
 __all__ = [
-    "dance",
-    "lock_on",
+    "move_test",
+    "follow_test",
+    "view_test"
 ]

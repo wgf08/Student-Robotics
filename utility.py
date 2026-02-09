@@ -15,11 +15,7 @@ def set_zone(robot):
     Returns:
         A tuple containing the zone and the fiducial markers inside this zone
     """
-    if robot.mode == "COMP":
-        zone = robot.zone
-    else:
-        zone = 0
-    return (zone, ZONE_FIDUCIAL_MARKERS[zone])
+    zone = (robot.zone, ZONE_FIDUCIAL_MARKERS[robot.zone])
 
 def sorted_boxes(markers):
     """

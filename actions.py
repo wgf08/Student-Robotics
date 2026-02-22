@@ -2,6 +2,7 @@ from movement import *
 from info import *
 from utility import *
 import random
+import time
 
 def wall_check(motors, robot):
     """
@@ -12,119 +13,193 @@ def wall_check(motors, robot):
         rotate_angle(math.pi, motors,1)
 
 
-def consume(robot, marker_id, motors):
+def consume(robot, marker_id, motors, method = 'indirect'):
     """
         Moves forward in order to collect a box on the ground given the id of the box
     """
-
+    if method == 'indirect':
     #Align Robot
-    while True:
-        markers = robot.camera.see()
-        try:
-            box = find_marker(markers, marker_id)
-        except:
-            return
-        if box.horizontal_angle > math.pi/12:
-            move_angle(motors, 0.22, 3*math.pi/2)
-            time.sleep(0.03)
-        elif box.horizontal_angle < -math.pi/12:
-            move_angle(motors, 0.22, math.pi/2)
-            time.sleep(0.03)
-        else:
-            break
-    
-    #Move Forward for at least estimate time
-    duration = ((box.distance+13))/(80*math.pi) + 0.3
-    move_straight(motors,1,forwards=True, duration=duration)
-    move_straight(motors,0.2)
-
-    #Continue until Box can no longer be seen
-    while True:
-        markers = robot.camera.see()
-        try:
-            box = find_marker(markers, marker_id)
-        except:
-            time.sleep(0.1)
-            halt(motors)
-
-def avoid(robot, marker_id, motors):
-
-    direction = math.pi/2
-
-    markers = robot.camera.see()
-
-    if TARGETED_SAMPLE == "ACID":
-        targeted = sorted_boxes(markers)[1]
-    else:
-        targeted = sorted_boxes(markers)[2]
-    if not targeted:
-        return
-    elif targeted[0].horizontal_angle < 0:
-        direction = 3* math.pi/2
-        
-    while True:
-        markers = robot.camera.see()
-        try:
-            box = find_marker(markers, marker_id)
-        except:
-            return
-        if -math.pi/8 < box.horizontal_angle < math.pi/8:
-            move_angle(motors, 0.22, direction)
-            time.sleep(0.03)
-        else:
-            break
-
-def return_to_zone(robot, zone, motors):
-
-    markers = robot.camera.see()
-    m_id, d, ma = find_position(markers)
-    base_ids = ZONE_FIDUCIAL_MARKERS[zone]
-
-    if m_id not in base_ids:
-        target_markers = ZONE_FIDUCIAL_MARKERS[zone]
-        # Compute di
-        # stances going up and down to each marker
-        distances_up = [(marker - m_id) % 20 for marker in target_markers]
-        distances_down = [(m_id - marker) % 20 for marker in target_markers]
-        
-        # Find the minimum distance in each direction
-        min_up = min(distances_up)
-        min_down = min(distances_down)
-
-        if min_up > min_down:
-            dir = 'down'
-        else:
-            dir = 'up'
-
-        if (ma < -math.pi/6 and dir == 'down') or (ma> math.pi/6 and dir == 'up'):
-            rotate_angle(math.pi, motors, 1)
-        elif (ma < -math.pi/6 and dir == 'up') or (ma> math.pi/6 and dir == 'down') or ( (-math.pi < ma < math.pi) and d>600):
-            move_straight(motors,power=1)
-        else:
-            rotate_angle(math.pi/2, motors, 1)
-
-
-    else:
         while True:
             markers = robot.camera.see()
             try:
-                box = find_marker(markers, m_id)
+                box = find_marker(markers, marker_id)
+                y = sample_xyz(box)
             except:
-                return
-            if box.horizontal_angle > math.pi/12:
+                return 0
+            if y > 150:
                 move_angle(motors, 0.22, 3*math.pi/2)
                 time.sleep(0.03)
-            elif box.horizontal_angle < -math.pi/12:
+            elif y < -150:
                 move_angle(motors, 0.22, math.pi/2)
                 time.sleep(0.03)
             else:
                 break
-        move_straight(motors,1)
-        while robot.arduino.ultrasound_measure(9,10):
-            continue
+        
+        #Move Forward for at least estimate time
+        duration = ((box.distance+13))/(80*math.pi) + 0.3
+        move_straight(motors,1,forwards=True, duration=duration)
+        move_straight(motors,0.3)
+
+        #Continue until Box can no longer be seen
+        while True:
+            markers = robot.camera.see()
+            try:
+                box = find_marker(markers, marker_id)
+            except:
+                time.sleep(0.1)
+                halt(motors)
+                break
+        return 1
+
+    else:
+        try:
+            box = find_marker(markers, marker_id)
+            x, y, z = sample_xyz(box)
+        except:
+            return 0
+        move_angle(motors, 1, box.position.horizontal_angle)
+        dist = math.sqrt((x**2)+(y**2))
+        time.sleep((dist/600) + 0.6)
+        
+                
+    
+
+def avoid(robot, marker_id, motors):
+
+    while True:
+        markers = robot.camera.see()
+        try:
+            box = find_marker(markers, marker_id)
+            y = sample_xyz(box)[1]
+        except:
+            return
+        if -350 < y < 350:
+            move_angle(motors, 0.3, math.pi/2 if y >= 0 else 3*math.pi/2)
+            time.sleep(0.03)
+        else:
+            return
+
+def return_to_zone(robot, zone, motors, direction = 'cw'):
+
+    distance_mm = robot.arduino.ultrasound_measure(2,3)
+    print(robot.arduino.ultrasound_measure(2,3))
+    if distance_mm <350 and distance_mm!=0:
+       move_straight(motors, power=-0.25)
+       robot.sleep(0.5)
+       rotate_angle(robot,0.4,motors,1)
+       return (0.1, direction)
+
+
+    base_ids = ZONE_FIDUCIAL_MARKERS[zone]
+    YAW_RANGE = 0.7
+
+    try:
+        print('101')
+        markers = sorted_boxes(robot.camera.see())[3]
+        print('103')
+        m = markers[0]
+        x, y ,z = wall_xyz(m)
+        print(y, m.id)
+        a = set([m.id for m in sorted_boxes(robot.camera.see())[3]]) & set(base_ids)
+        y2 = math.inf
+        if a:
+            y2 = wall_xyz(a)[0]
+        print('108')
+        if (not a) or (abs(y2) > 1100):
+            print(not a)
+            print((abs(y))> 1000)
+            if m.id % 5 == 1 and m.position.distance > 1600:
+                for box in markers: 
+                    print('114')
+                    if box.id%5 == 0: m = box
+            target_markers = ZONE_FIDUCIAL_MARKERS[zone]
+            distances_cw = [(marker - m.id) % 20 for marker in target_markers]
+            distances_ccw = [(m.id - marker) % 20 for marker in target_markers]
+
+
+            min_cw = min(distances_cw)
+            min_ccw = min(distances_ccw)
+            direction = 'cw' if min_cw <= min_ccw else 'ccw'
+            curr_dir = 'cw' if m.orientation.yaw < 0 else 'acw'
+
+            if curr_dir != direction and x < 100:
+                print(curr_dir, direction, m, m.orientation.yaw)
+                rotate_angle(robot,math.pi,motors,1)
+                return (0.1,direction)
+
+            angle = ((math.pi)/2+m.orientation.yaw)*2.5 if direction == 'cw' else ((math.pi)+m.orientation.yaw)*2.5
+
+            if a:
+                rotate_angle(robot,math.pi/1.3,motors,1,ac = True)
+                return (0.2, direction)
+            elif x < 900 or (x < 1600 and abs(m.orientation.yaw) > YAW_RANGE):
+                print(f'1 {direction}')
+                rotate_angle(robot,angle,motors,1,ac = False)
+                move_straight(motors,0.4)
+                return (0.8,direction)
+            elif x>1600 and m.id%5 == 1 or 2 :
+                print('3')
+                rotate_angle(robot,m.position.horizontal_angle*1.4,motors, 1, m.position.horizontal_angle<0)
+                move_straight(motors,0.4)
+                return (0.4,direction)
+            elif x > 1600 and abs(m.orientation.yaw) < YAW_RANGE:
+                print('2 {x, m.id}')
+                rotate_angle(robot,m.position.horizontal_angle*1.3,motors, 1, m.position.horizontal_angle<0)
+                move_straight(motors,0.4)
+                return (0.4,direction)
+            else:
+                print(f'Condition 4 executed. Stats \n M_ID = {m.id}   X: {x}   YAW: {m.orientation.yaw}')
+                move_straight(motors,0.4)
+                return (0.2,direction)
+                
+
+        else:
+            
+            print(y)
+            distance_mm = robot.arduino.ultrasound_measure(2,3)
+            marker = find_marker(robot.camera.see(), m.id)
+            while marker is not None and marker.position.distance > 400:
+                marker.position.distance
+                marker = find_marker(robot.camera.see(), m.id)
+                move_straight(motors,0.2)
+            while distance_mm > 800 or distance_mm == 0:
+                    distance_mm = robot.arduino.ultrasound_measure(2,3)
+                    move_straight(motors,0.3)
+                    continue
+            
+
+            halt(motors)
+            move_straight(motors, power=-0.5)
+            return (0.1, direction)
+
+    except Exception as e:
+        print(e)
+        print('FAILURE - NOTHING SEEN')
+        rand = random.random()
+        if rand<=0.3:
+            move_straight(motors, power=-0.2)
+            robot.sleep(0.5)
+            print('moving back?')
+        rotate_angle(robot,math.pi/1.2,motors,1,'cw' if direction == 'acw' else 'acw' )
+        return (0.1,direction)
+
+def execute_timed_function(func, time_to_run):
+    start_time = start_timer()
+    curr_time = time.time()
+
+    while curr_time - start_time > time_to_run:
+        output = func()
+        if output == 'Completed': return 1
+        else: curr_time = time.time()
+    return 0 
+
+def return_loop(robot, zone, motors, direction = 'cw'):
+    direction = 'cw'
+    while True:
+        rest, direction = return_to_zone(robot,2,motors,direction)
+        robot.sleep(rest)
         halt(motors)
-        move_straight(forwards=False, power=1, duration= 1.5)
-    #upon reaching base:
+        robot.sleep(0.05)
 
 def idle(motors):
     spin(motors, 1, duration=0.5)

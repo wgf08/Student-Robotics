@@ -10,9 +10,12 @@ start_time = start_timer()
 
 #setup robot and motors
 robot = Robot()
-zone = set_zone(robot)[0]
+zone = 0
+
 mb1 = robot.motor_boards[srlnums[0]]
 mb2 = robot.motor_boards[srlnums[1]]
+sb = robot.servo_board
+
 motor1 = mb2.motors[0]
 motor2 = mb1.motors[0]
 motor3 = mb1.motors[1]
@@ -22,10 +25,8 @@ CURRENT_BASE_VALUE = 0
 CURRENT_ROBOT_VALUE = 0
 
 if robot.mode == DEV:
-    print('DEV MODE ON, BEGGINING MOVE TEST')
-    move_test(motors,0.5,5)
-    print('TASK COMPLETED, FOLLOW_TESST IN 2 SECONDS')
-    robot.sleep(2)
+    spin(motors, 1)
+
 
     """
     while not follow_test():
@@ -47,7 +48,3 @@ if robot.mode == DEV:
 
 else:
     pass
-    
-
-
-

@@ -4,7 +4,9 @@ TARGETED_SAMPLE = "ACID"
 
 THRESHOLD_TIMES = [20]
 
-srlnums = [ "SR0KEH","SR0VF6"]
+THRESHOLD_CARRY = 3
+
+srlnums = ["srOKET1","srOVF6"]
 
 MARKER_FACING = {
 
@@ -28,3 +30,5 @@ ZONE_FIDUCIAL_MARKERS = {
     3: [13,14,15]
 
 }
+
+MARKER_TO_ZONE = {marker: zone for zone, markers in ZONE_FIDUCIAL_MARKERS.items() for marker in markers}

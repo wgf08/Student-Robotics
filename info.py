@@ -6,7 +6,7 @@ THRESHOLD_TIMES = [20]
 
 THRESHOLD_CARRY = 3
 
-srlnums = ["srOKET1","srOVF6"]
+srlnums = ["SR0KEH","SR0VF6"]
 
 MARKER_FACING = {
 

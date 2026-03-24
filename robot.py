@@ -25,26 +25,33 @@ CURRENT_BASE_VALUE = 0
 CURRENT_ROBOT_VALUE = 0
 
 if robot.mode == DEV:
-    spin(motors, 1)
-
-
-    """
-    while not follow_test():
-        pass
-    print('TASK COMPLETED, CONSUMPTION IN 2 SECONDS')
-    robot.sleep(2)
-
-    markers = robot.see()
-    sample = sorted_boxes(markers)[2][0]
-    consume(robot, sample, motors)
-    """
-
-    """
-    while True:
-        spin(motors,1,True)
-
-    spin(motors, 1, True, 1)
-    """
-
+    code = 2
+    if code == 0:
+        while True:
+            for i in range(6):
+                angle = 60*(i+1)
+                rotate_angle(motors,math.pi/2,1,True)
+                robot.sleep(1)
+    if code == 1:
+        while True:
+            markers = robot.camera.see()
+            try:
+                m = markers[0]
+            except:
+                continue
+            consume(robot,m.id,motors,'direct-ws')
+    if code == 2:
+        while True:
+            markers = robot.camera.see()
+            try:
+                m = markers[0]
+            except:
+                continue
+            avoid(robot, m.id, motors)
+    if code == 3:
+        while True:
+            rotate_angle(motors,math.pi,1,True)
+            time.sleep(2)
+                
 else:
     pass

@@ -63,5 +63,7 @@ def move_angle(motors, power, theta, rotation=0):
 
 def rotate_angle(motors, theta, power, clockwise = True):
     spin(motors,power,clockwise)
-    time.sleep((theta/360)*2.2)
+    tpr = 2.2
+    rtime = (theta/(2*math.pi)) * tpr
+    time.sleep(rtime)
     halt(motors)

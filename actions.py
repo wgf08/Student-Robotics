@@ -23,22 +23,29 @@ def consume(robot, marker_id, motors, method = 'indirect'):
             markers = robot.camera.see()
             try:
                 box = find_marker(markers, marker_id)
-                y = sample_xyz(box)
-            except:
+                print('got box')
+                print(box)
+                y = sample_xyz(box)[0]
+                print(y)
+            except Exception as e:
+                print(f'returned could not see box {e}')
+                halt(motors)
+                continue
                 return 0
             if y > 150:
-                move_angle(motors, 0.22, 3*math.pi/2)
+                move_angle(motors, 0.5, math.pi/2)
                 time.sleep(0.03)
             elif y < -150:
-                move_angle(motors, 0.22, math.pi/2)
+                move_angle(motors, 0.5, 3*math.pi/2)
                 time.sleep(0.03)
             else:
                 break
         
         #Move Forward for at least estimate time
-        duration = ((box.distance+13))/(80*math.pi) + 0.3
-        move_straight(motors,1,forwards=True, duration=duration)
-        move_straight(motors,0.3)
+        duration = convert_dist_time(box.position )
+        move_angle(motors,1,box.position.horizontal_angle)
+        robot.sleep(duration)
+        move_angle(motors,0.5,box.position.horiztonal_angle)
 
         #Continue until Box can no longer be seen
         while True:
@@ -51,15 +58,42 @@ def consume(robot, marker_id, motors, method = 'indirect'):
                 break
         return 1
 
+    elif method == 'direct-ws':
+        while True:
+            try:
+                box = find_marker(markers, marker_id)
+                x, y, z = sample_xyz(box)
+            except:
+                return 0
+            move_angle(motors, 1, box.position.horizontal_angle)
+            if box.position.distance > 500:
+                time.sleep(0.8)
+                halt(motors)
+                time.sleep(0.1)
+            else:
+                time.sleep(convert_dist_time(box.position.distance, 1))
+                halt(motors)
+                return 1 
     else:
-        try:
-            box = find_marker(markers, marker_id)
-            x, y, z = sample_xyz(box)
-        except:
-            return 0
-        move_angle(motors, 1, box.position.horizontal_angle)
-        dist = math.sqrt((x**2)+(y**2))
-        time.sleep((dist/600) + 0.6)
+        while True:
+            try:
+                box = find_marker(markers, marker_id)
+                x, y, z = sample_xyz(box)
+            except:
+                halt(motors)
+                try:
+                    box = find_marker(markers, marker_id)
+                    x, y, z = sample_xyz(box)
+                    continue
+                except:
+                    return 0
+            move_angle(motors, 0.5, box.position.horizontal_angle)
+            if box.position.distance > 500:
+                time.sleep(0.8)
+            else:
+                time.sleep(convert_dist_time(box.position.distance, 0.5))
+                halt(motors)
+                return 1 
         
                 
     
@@ -70,14 +104,20 @@ def avoid(robot, marker_id, motors):
         markers = robot.camera.see()
         try:
             box = find_marker(markers, marker_id)
-            y = sample_xyz(box)[1]
+            y = sample_xyz(box)[0]
         except:
-            return
-        if -350 < y < 350:
-            move_angle(motors, 0.3, math.pi/2 if y >= 0 else 3*math.pi/2)
+            halt(motors)
+            markers = robot.camera.see()
+            if not markers:
+                return
+            else:
+                continue
+        print(y)
+        if -450 < y < 450:
+            move_angle(motors, 0.72, 3*math.pi/2 if y >= 0 else math.pi/2)
             time.sleep(0.03)
         else:
-            return
+            continue
 
 def return_to_zone(robot, zone, motors, direction = 'cw'):
 

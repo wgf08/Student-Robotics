@@ -16,6 +16,7 @@ def set_zone(robot):
         A tuple containing the zone and the fiducial markers inside this zone
     """
     zone = (robot.zone, ZONE_FIDUCIAL_MARKERS[robot.zone])
+    return zone
 
 def sorted_boxes(markers):
     """
@@ -153,5 +154,11 @@ def sample_xyz(marker):
     cx = mx + HALF_BOX * math.sin(yaw)
     cy = my + HALF_BOX * math.cos(yaw)
     cz = mz  # assuming box sits flat, no vertical offset needed
-
+    print('working')
     return cx, cy, cz
+
+def convert_dist_time(distance, power):
+    speed = 0.6
+    const = 0.15
+    return ((distance/1000)/speed + const) / power
+

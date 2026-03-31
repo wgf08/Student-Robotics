@@ -10,7 +10,7 @@ start_time = start_timer()
 
 #setup robot and motors
 robot = Robot()
-zone = 0
+zone = robot.zone
 
 mb1 = robot.motor_boards[srlnums[0]]
 mb2 = robot.motor_boards[srlnums[1]]

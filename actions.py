@@ -42,7 +42,8 @@ def consume(robot, marker_id, motors, method = 'indirect'):
                 break
         
         #Move Forward for at least estimate time
-        duration = convert_dist_time(box.position )
+        x = sample_xyz(box)[1]
+        duration = convert_dist_time(x)
         move_angle(motors,1,box.position.horizontal_angle)
         robot.sleep(duration)
         move_angle(motors,0.5,box.position.horiztonal_angle)

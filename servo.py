@@ -39,7 +39,7 @@ def whip(servo):
     servo.position = RESTING_POSITION
     time.sleep(0.5)  # Wait to reach resting position before doing anything else
 
-def get_box(servo, motors, marker_id):
+def get_high_box(servo, motors, marker_id):
     """
     Positions itself next to a marker that is raised above the ground and moves 
     into a position at which it thinks it can successfully whip its tail to 
@@ -47,7 +47,15 @@ def get_box(servo, motors, marker_id):
     """
     marker = find_marker(marker_id)
     x, y, z = sample_xyz(marker)
-    while abs(y) > 500:
+    while y > 600:
+        move_straight(motors,1,True)
+        try:
+            marker = find_marker(marker_id)
+            x, y, z = sample_xyz(marker)
+        except:
+            break
+
+    while abs(x) > 500:
         move_angle(motors, 0.3, math.pi if y > 0 else 3*math.pi/2)
         try:
             marker = find_marker(marker_id)

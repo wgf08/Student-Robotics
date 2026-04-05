@@ -246,6 +246,35 @@ def idle(motors):
     spin(motors, 1, duration=0.5)
     move_straight(motors,0.5,duration=0.3)
 
+def dump(robot, target_zone, motors):
+    """
+    Drives into a target zone and deposits all carried samples.
+    Homes in on the zone's wall markers and stops when the ultrasound
+    detects we're close enough to the wall.
+    """
+    CLOSE_ENOUGH = 250  # mm
+
+    while True:
+        # Check ultrasound first — stop if we're already close enough
+        distance_mm = robot.arduino.ultrasound_measure(2, 3)
+        if 0 < distance_mm < CLOSE_ENOUGH:
+            halt(motors)
+            return
+
+        markers = robot.camera.see()
+        zone_marker_ids = ZONE_FIDUCIAL_MARKERS[target_zone]
+        zone_markers = [m for m in markers if m.id in zone_marker_ids]
+
+        if not zone_markers:
+            # Can't see the zone, spin slowly to find it
+            spin(motors, 0.3, duration=0.2)
+            continue
+
+        # Home in on the nearest visible zone marker
+        target = min(zone_markers, key=lambda m: m.position.distance)
+        move_angle(motors, 0.6, target.position.horizontal_angle)
+        time.sleep(0.05)
+
 
     
 

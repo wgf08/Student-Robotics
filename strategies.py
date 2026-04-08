@@ -1,7 +1,7 @@
 from utility import *
 from movement import *
-from servo import whip, get_high_box, set_sweep, initialise_servo
-from actions import consume, avoid, dump, return_loop
+from servo import whip, set_sweep, initialise_servo
+from actions import consume, avoid, dump, return_loop, return_to_zone
 from info import *
 import time
 import math
@@ -373,3 +373,100 @@ def platform_wall_sweep(robot, motors, servo, marker):
 
     # Tuck arm back ready for normal operation
     initialise_servo(servo)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Idle — scan the arena and return the first actionable target
+# ─────────────────────────────────────────────────────────────────────────────
+
+# How many spin steps before giving up a full rotation (~15° per step)
+_IDLE_MAX_STEPS = 24
+
+
+def idle(robot, motors):
+    """
+    Slowly rotates the robot, scanning with the camera each step, and returns
+    as soon as it finds something worth acting on.
+
+    Return values:
+        ('high',    marker)  — a raised box is visible; caller should use
+                               platform_wall_sweep(robot, motors, servo, marker)
+        ('collect', marker)  — a ground-level box of our type is visible;
+                               caller should use find_and_collect(...)
+        ('none',    None)    — completed a full rotation with nothing found
+
+    Lives in strategies (not actions) because it needs _is_high and
+    _is_our_sample which are defined here.
+    """
+    steps = 0
+
+    while steps < _IDLE_MAX_STEPS:
+        markers            = robot.camera.see()
+        _, acids, bases, _ = sorted_boxes(markers)
+        all_samples        = sorted(acids + bases,
+                                    key=lambda m: m.position.distance)
+
+        for m in all_samples:
+            if _is_high(m):
+                halt(motors)
+                return ('high', m)
+            if _is_our_sample(m):
+                halt(motors)
+                return ('collect', m)
+
+        # Nothing useful this tick — rotate a small step and try again
+        spin(motors, SEARCH_SPIN_POWER, clockwise=True,
+             duration=SEARCH_SPIN_DURATION)
+        halt(motors)
+        steps += 1
+
+    return ('none', None)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Strategy 6 — steal_from_base
+# ─────────────────────────────────────────────────────────────────────────────
+
+# How close to approach before scanning for stealable boxes (mm)
+
+def steal_from_base(robot, motors, target_zone):
+    """
+    Navigates to an opponent's base using direct line-of-sight or the 
+    return_to_zone function, then consumes any valuable ground samples.
+    """
+    global CURRENT_ROBOT_VALUE
+    
+    target_ids = ZONE_FIDUCIAL_MARKERS.get(target_zone, [])
+    if not target_ids:
+        return False
+
+    markers = robot.camera.see()
+    zone_markers = [m for m in markers if m.id in target_ids]
+
+    # 1. Navigate to their base
+    if zone_markers:
+        # We can see the base! Go straight towards the nearest marker.
+        target = min(zone_markers, key=lambda m: m.position.distance)
+        move_angle(motors, 0.6, target.position.horizontal_angle)
+        time.sleep(0.3)
+        halt(motors)
+    else:
+        # Can't see it — drive toward the zone using return_to_zone
+        rest, _ = return_to_zone(robot, target_zone, motors)
+        time.sleep(rest)
+        halt(motors)
+
+    # 2. Try to consume the boxes there
+    markers = robot.camera.see()
+    _, acids, bases, _ = sorted_boxes(markers)
+    stolen = False
+
+    # Additional logic: Only target boxes on the ground that score us points
+    stealable = [m for m in (acids + bases) if not _is_high(m) and _is_our_sample(m)]
+    
+    for box in sorted(stealable, key=lambda m: m.position.distance):
+        if consume(robot, box.id, motors, method='direct-ws') == 1:
+            CURRENT_ROBOT_VALUE += 1
+            stolen = True
+
+    return stolen

@@ -1,4 +1,4 @@
-from sr.robot3 import BRAKE, COAST
+from sr.robot3 import BRAKE, COAST, INPUT, OUTPUT, A0, A1
 import math
 import time
 from info import *
@@ -66,4 +66,103 @@ def rotate_angle(motors, theta, power, clockwise = True):
     tpr = 2.2
     rtime = (theta/(2*math.pi)) * tpr
     time.sleep(rtime)
+    halt(motors)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Accelerometer-assisted distance movement
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Accelerometer-assisted distance movement
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Use the A0 and A1 constants from sr.robot3 for the analog pins
+ACCEL_PIN_X      = A0      # forward axis of the accelerometer
+ACCEL_PIN_Y      = A1      # lateral axis (set None if unavailable)
+
+# ADXL335 on 5 V: 0 g = ~512 counts, ~61 counts/g.
+# ADXL335 on 3.3 V: 0 g = ~512 counts, ~102 counts/g.  Tune on your robot.
+ACCEL_ZERO_G     = 512     # ADC reading at exactly 0 g
+ACCEL_SCALE      = 61      # ADC counts per g
+
+# Estimated max speed mm/s at power=1 (0.6 m/s)
+KINEM_SPEED_MM_S = 600.0   
+
+# Hard timeout — halt no matter what after this many seconds.
+MOVE_TIMEOUT_S   = 10.0
+
+
+def _read_accel_g(robot):
+    """
+    Read both accelerometer axes, return (ax_g, ay_g).
+    ay_g is 0.0 when ACCEL_PIN_Y is None.
+    """
+    # Fix 1: Pins must be set to INPUT to read sensors
+    robot.arduino.pins[ACCEL_PIN_X].mode = INPUT
+    if ACCEL_PIN_Y is not None:
+        robot.arduino.pins[ACCEL_PIN_Y].mode = INPUT
+
+    # Fix 2: analog_read() is a method on the pin object
+    raw_x = robot.arduino.pins[ACCEL_PIN_X].analog_read()
+    ax_g  = (raw_x - ACCEL_ZERO_G) / float(ACCEL_SCALE)
+    
+    if ACCEL_PIN_Y is not None:
+        raw_y = robot.arduino.pins[ACCEL_PIN_Y].analog_read()
+        ay_g  = (raw_y - ACCEL_ZERO_G) / float(ACCEL_SCALE)
+    else:
+        ay_g  = 0.0
+        
+    return ax_g, ay_g
+
+
+def move_distance(motors, power, theta, target_mm, robot):
+    """
+    Move at angle `theta` (radians) and motor `power` until the blended
+    distance estimate reaches `target_mm`, then halt.
+
+    Uses a fixed weighted average:
+      - 30% Accelerometer (double integration)
+      - 70% Kinematic estimate (based on 0.6 m/s)
+    """
+    G_TO_MM_S2 = 9806.65
+
+    # Project accelerometer axes onto travel direction
+    proj_x = math.cos(theta)
+    proj_y = math.sin(theta)
+
+    move_angle(motors, power, theta)
+
+    t_prev    = time.time()
+    t_start   = t_prev
+    vel_accel = 0.0
+    pos_accel = 0.0
+    pos_kinem = 0.0
+
+    while True:
+        t_now = time.time()
+        dt    = t_now - t_prev
+        t_prev = t_now
+
+        if (t_now - t_start) > MOVE_TIMEOUT_S:
+            break
+
+        # ── 1. Kinematic estimate (30%) ──
+        pos_kinem += KINEM_SPEED_MM_S * power * dt
+
+        # ── 2. Accelerometer estimate (70%) ──
+        ax_g, ay_g    = _read_accel_g(robot)
+        a_along_g     = ax_g * proj_x + ay_g * proj_y
+        a_along_mm_s2 = a_along_g * G_TO_MM_S2
+
+        vel_accel += a_along_mm_s2 * dt
+        pos_accel += vel_accel * dt
+
+        # ── Blending ──
+        # Fixed Weighted blend: 30% accel, 70% kinem
+        pos_blend = (0.3 * pos_accel) + (0.7 * pos_kinem)
+
+        if pos_blend >= target_mm:
+            break
+
     halt(motors)

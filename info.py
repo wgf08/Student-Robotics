@@ -16,7 +16,7 @@ MARKER_FACING = {
 
     **{i:  math.pi / 2 for i in range(10, 15)},
 
-    **{i: math.pi/2 for i in range(15, 20)},
+    **{i: math.pi for i in range(15, 20)},
 }
 
 ZONE_FIDUCIAL_MARKERS = {

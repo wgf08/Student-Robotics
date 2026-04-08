@@ -7,8 +7,8 @@ def start_timer():
     return time.time()
 
 def time_left(start_time):
-    time_elapsed = start_time-time.time()
-    return 150-time_elapsed
+    time_elapsed = time.time() - start_time
+    return 180 - time_elapsed
 
 def set_zone(robot):
     """
@@ -38,10 +38,10 @@ def sorted_boxes(markers):
     samples = acids + bases
 
     # Sort all lists by marker.distance
-    samples.sort(key=lambda m: m.distance)
-    acids.sort(key=lambda m: m.distance)
-    bases.sort(key=lambda m: m.distance)
-    walls.sort(key=lambda m: m.distance)
+    samples.sort(key=lambda m: m.position.distance)
+    acids.sort(key=lambda m: m.position.distance)
+    bases.sort(key=lambda m: m.position.distance)
+    walls.sort(key=lambda m: m.position.distance)
 
     return [samples, acids, bases, walls]
 
@@ -156,9 +156,4 @@ def sample_xyz(marker):
     cz = mz  # assuming box sits flat, no vertical offset needed
     print('working')
     return cx, cy, cz
-
-def convert_dist_time(distance, power):
-    speed = 0.6
-    const = 0.15
-    return ((distance/1000)/speed + const) / power
 

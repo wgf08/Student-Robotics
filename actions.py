@@ -154,10 +154,7 @@ def execute_timed_function(func, time_to_run):
         else: curr_time = time.time()
     return 0 
 
-def return_loop(robot, zone, motors):
-    import return_nav as ret
-    ret.NavigateToZone(robot, motors, zone)
-        
+
 def idle(robot, motors):
     # Setup first run flag
     if not hasattr(idle, "first_run"):
@@ -220,37 +217,85 @@ def _execute_maneuver(robot, motors, duration):
         time.sleep(0.05)
     clear_queue(motors)
 
-def dump(robot, target_zone, motors):
+def return_loop(robot, zone, motors):
+    import return_nav as ret
+    ret.NavigateToZone(robot, motors, zone)
+
+    if zone == robot.zone:
+        # Leave deposited boxes behind and turn to face the arena
+        move_straight(motors, 0.6, forwards=False, duration=0.4)
+        halt(motors)
+        time.sleep(0.1)
+        rotate_angle(motors, math.pi / 2, 0.8, clockwise=False)
+
+
+def dump_opportunistic(robot, target_zone, motors):
     """
-    Drives into a target zone and deposits all carried samples.
-    Homes in on the zone's wall markers and stops when the ultrasound
-    detects we're close enough to the wall.
+    Opportunistic dump: only call this when you can already SEE the opponent's
+    base markers in the current frame. Steers directly toward the nearest
+    visible zone marker until the front ultrasound says we are close enough,
+    then halts (boxes are deposited by proximity).
+
+    Returns True if we successfully drove in, False if the zone markers were
+    lost before we arrived (e.g. we drifted off-angle).
+
+    DO NOT call this for deliberate navigation — use dump_navigate() instead.
     """
     CLOSE_ENOUGH = 250  # mm
-    TIMEOUT_S    = 20.0
-    start        = time.time()
+    zone_marker_ids = ZONE_FIDUCIAL_MARKERS[target_zone]
 
-    while time.time() - start < TIMEOUT_S:
-        # Check ultrasound first — stop if we're already close enough
+    while True:
         distance_mm = robot.arduino.ultrasound_measure(2, 3)
         if 0 < distance_mm < CLOSE_ENOUGH:
             halt(motors)
-            return
+            return True
 
         markers = robot.camera.see()
-        zone_marker_ids = ZONE_FIDUCIAL_MARKERS[target_zone]
         zone_markers = [m for m in markers if m.id in zone_marker_ids]
 
         if not zone_markers:
-            # Can't see the zone, spin slowly to find it
-            spin(motors, 0.3, duration=0.2)
-            continue
+            halt(motors)
+            return False
 
-        # Home in on the nearest visible zone marker
         target = min(zone_markers, key=lambda m: m.position.distance)
-        move_angle(motors, 0.6, target.position.horizontal_angle)
+        move_angle(motors, 0.6, -target.position.horizontal_angle)
         time.sleep(0.05)
 
+
+def dump_navigate(robot, target_zone, motors):
+    """
+    Deliberate dump: navigates to target_zone using GPS pathfinding
+    (return_nav.NavigateToZone), drives in until the front ultrasound confirms
+    we are close enough, then backs out so the deposited boxes stay behind.
+
+    Use this during the late-game steal/sabotage phase when we are deliberately
+    routing to an opponent base regardless of whether it is visible right now.
+    """
+    import return_nav as ret
+
+    CLOSE_ENOUGH = 250  # mm
+    zone_marker_ids = ZONE_FIDUCIAL_MARKERS[target_zone]
+
+    ret.NavigateToZone(robot, motors, target_zone)
+
+    while True:
+        distance_mm = robot.arduino.ultrasound_measure(2, 3)
+        if 0 < distance_mm < CLOSE_ENOUGH:
+            halt(motors)
+            break
+
+        markers = robot.camera.see()
+        zone_markers = [m for m in markers if m.id in zone_marker_ids]
+
+        if not zone_markers:
+            move_straight(motors, 0.4, forwards=True, duration=0.2)
+            break
+
+        target = min(zone_markers, key=lambda m: m.position.distance)
+        move_angle(motors, 0.5, -target.position.horizontal_angle)
+        time.sleep(0.05)
+
+    move_straight(motors, 0.6, forwards=False, duration=0.4)
     halt(motors)
 
 

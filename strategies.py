@@ -1,7 +1,7 @@
 from utility import *
 from movement import *
 from servo import whip, set_sweep, initialise_servo
-from actions import consume, avoid, dump, return_loop, return_to_zone
+from actions import consume, avoid, dump_opportunistic, dump_navigate, return_loop
 from info import *
 import time
 import math
@@ -13,7 +13,7 @@ import math
 HIGH_BOX_ANGLE_THRESHOLD = 0.15  # radians — vertical_angle above this = raised box
 BLOCKER_ANGLE_TOLERANCE  = 0.25  # radians — half-cone in which a box counts as blocking
 SEARCH_SPIN_POWER        = 0.3   # power when rotating to scan
-SEARCH_SPIN_DURATION     = 0.4   # seconds per scan step
+SEARCH_SPIN_DURATION     = 0.34  # seconds per scan step — rotates ~55° (one FOV width)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Score state — updated by strategies, readable from robot.py
@@ -21,6 +21,26 @@ SEARCH_SPIN_DURATION     = 0.4   # seconds per scan step
 
 CURRENT_ROBOT_VALUE = 0  # net value of samples currently carried on the robot
 CURRENT_BASE_VALUE  = 0  # cumulative net value deposited in our own base so far
+
+# Tracks estimated current value of each opponent zone (0 = unknown/empty).
+OPPONENT_BASE_VALUES: dict = {0: 0, 1: 0, 2: 0, 3: 0}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Opportunistic base-value updater
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _update_base_value(markers):
+    """
+    Given a freshly captured marker list, update OPPONENT_BASE_VALUES for every
+    zone whose fiducial marker(s) are visible in this frame.
+    """
+    for zone, zone_marker_ids in ZONE_FIDUCIAL_MARKERS.items():
+        zone_markers = [m for m in markers if m.id in zone_marker_ids]
+        if not zone_markers:
+            continue
+        reference = min(zone_markers, key=lambda m: m.position.distance)
+        OPPONENT_BASE_VALUES[zone] = assess_base_value(reference, markers)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -74,16 +94,11 @@ def _best_sabotage_zone(robot, zones):
     THRESHOLD_CARRY boxes.
     """
     markers = robot.camera.see()
-    best    = None
+    _update_base_value(markers)
 
+    best = None
     for zone in zones:
-        zone_marker_ids = ZONE_FIDUCIAL_MARKERS.get(zone, [])
-        zone_markers    = [m for m in markers if m.id in zone_marker_ids]
-        if not zone_markers:
-            continue
-
-        reference     = min(zone_markers, key=lambda m: m.position.distance)
-        current_value = assess_base_value(reference, markers)
+        current_value = OPPONENT_BASE_VALUES.get(zone, 0)
         projected     = current_value + THRESHOLD_CARRY  # +1 per box we carry
         improvement   = abs(current_value) - abs(projected)
 
@@ -117,6 +132,7 @@ def find_and_collect(robot, motors, servo):
     global CURRENT_ROBOT_VALUE
 
     markers            = robot.camera.see()
+    _update_base_value(markers)                 # free intel while camera is open
     _, acids, bases, _ = sorted_boxes(markers)
     all_samples        = acids + bases
 
@@ -223,7 +239,14 @@ def assess_and_sabotage(robot, motors, servo):
         return False
 
     target_zone, current_value, projected_value = best
-    dump(robot, target_zone, motors)
+
+    # Use opportunistic dump if the zone is already visible, else full navigation
+    markers = robot.camera.see()
+    zone_visible = any(m.id in ZONE_FIDUCIAL_MARKERS[target_zone] for m in markers)
+    if zone_visible:
+        dump_opportunistic(robot, target_zone, motors)
+    else:
+        dump_navigate(robot, target_zone, motors)
     CURRENT_ROBOT_VALUE = 0  # boxes left on their base, not ours
     return True
 
@@ -380,7 +403,7 @@ def platform_wall_sweep(robot, motors, servo, marker):
 # ─────────────────────────────────────────────────────────────────────────────
 
 # How many spin steps before giving up a full rotation (~15° per step)
-_IDLE_MAX_STEPS = 24
+_IDLE_MAX_STEPS = 7   # ceil(360 / 55° FOV) — one step per camera width
 
 
 def idle(robot, motors):
@@ -402,6 +425,7 @@ def idle(robot, motors):
 
     while steps < _IDLE_MAX_STEPS:
         markers            = robot.camera.see()
+        _update_base_value(markers)             # free intel while camera is open
         _, acids, bases, _ = sorted_boxes(markers)
         all_samples        = sorted(acids + bases,
                                     key=lambda m: m.position.distance)
@@ -451,22 +475,40 @@ def steal_from_base(robot, motors, target_zone):
         time.sleep(0.3)
         halt(motors)
     else:
-        # Can't see it — drive toward the zone using return_to_zone
-        rest, _ = return_to_zone(robot, target_zone, motors)
-        time.sleep(rest)
-        halt(motors)
+        # Can't see it — use GPS navigation
+        return_loop(robot, target_zone, motors)
 
-    # 2. Try to consume the boxes there
-    markers = robot.camera.see()
-    _, acids, bases, _ = sorted_boxes(markers)
+    # 2. Scan and steal — after each consume the robot may have drifted so we
+    #    do a full slow rotation to relocate any remaining stealable boxes.
+    #    Only give up once a complete rotation yields nothing new.
     stolen = False
 
-    # Additional logic: Only target boxes on the ground that score us points
-    stealable = [m for m in (acids + bases) if not _is_high(m) and _is_our_sample(m)]
-    
-    for box in sorted(stealable, key=lambda m: m.position.distance):
-        if consume(robot, box.id, motors, method='direct-ws') == 1:
-            CURRENT_ROBOT_VALUE += 1
-            stolen = True
+    while True:
+        found_this_rotation = False
+
+        for step in range(_IDLE_MAX_STEPS):
+            markers = robot.camera.see()
+            _update_base_value(markers)
+            _, acids, bases, _ = sorted_boxes(markers)
+
+            stealable = [
+                m for m in (acids + bases)
+                if not _is_high(m) and _is_our_sample(m)
+            ]
+
+            if stealable:
+                target = min(stealable, key=lambda m: m.position.distance)
+                if consume(robot, target.id, motors, method='direct-ws') == 1:
+                    CURRENT_ROBOT_VALUE += 1
+                    stolen = True
+                found_this_rotation = True
+                break  # restart outer loop for a fresh full rotation
+
+            spin(motors, SEARCH_SPIN_POWER, clockwise=True,
+                 duration=SEARCH_SPIN_DURATION)
+            halt(motors)
+
+        if not found_this_rotation:
+            break
 
     return stolen

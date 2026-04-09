@@ -151,9 +151,20 @@ def return_loop(robot, zone, motors):
       • Plans an obstacle-avoiding path with Dijkstra.
       • Drives waypoints in short bursts, dead-reckoning between GPS fixes.
       • Re-plans automatically if the robot drifts off-track.
+
+    If the target zone is our own base, we back up after arrival to leave any
+    deposited boxes behind, then rotate pi/2 anticlockwise to face back out
+    into the arena ready to collect again.
     """
     import return_nav as ret
     ret.NavigateToZone(robot, motors, zone)
+
+    if zone == robot.zone:
+        # Leave deposited boxes behind and turn to face the arena
+        move_straight(motors, 0.6, forwards=False, duration=0.4)
+        halt(motors)
+        time.sleep(0.1)
+        rotate_angle(motors, math.pi / 2, 0.8, clockwise=False)
 
 
 def idle(robot, motors):
@@ -182,29 +193,79 @@ def idle(robot, motors):
     halt(motors)  # FIX: was move_straight(motors, power=0.0) which doesn't brake
 
 
-def dump(robot, target_zone, motors):
+def dump_opportunistic(robot, target_zone, motors):
     """
-    Drives into a target zone and deposits all carried samples.
+    Opportunistic dump: only call this when you can already SEE the opponent's
+    base markers in the current frame. Steers directly toward the nearest
+    visible zone marker until the front ultrasound says we are close enough,
+    then halts (boxes are deposited by proximity).
+
+    Returns True if we successfully drove in, False if the zone markers were
+    lost before we arrived (e.g. we drifted off-angle).
+
+    DO NOT call this for deliberate navigation — use dump_navigate() instead.
     """
     CLOSE_ENOUGH = 250  # mm
+    zone_marker_ids = ZONE_FIDUCIAL_MARKERS[target_zone]
 
     while True:
         distance_mm = robot.arduino.ultrasound_measure(2, 3)
         if 0 < distance_mm < CLOSE_ENOUGH:
             halt(motors)
-            return
+            return True
 
         markers = robot.camera.see()
-        zone_marker_ids = ZONE_FIDUCIAL_MARKERS[target_zone]
         zone_markers = [m for m in markers if m.id in zone_marker_ids]
 
         if not zone_markers:
-            spin(motors, 0.3, duration=0.2)
-            continue
+            # Lost sight of the base — bail rather than driving blind
+            halt(motors)
+            return False
 
         target = min(zone_markers, key=lambda m: m.position.distance)
         move_angle(motors, 0.6, -target.position.horizontal_angle)
         time.sleep(0.05)
+
+
+def dump_navigate(robot, target_zone, motors):
+    """
+    Deliberate dump: navigates to target_zone using GPS pathfinding
+    (return_nav.NavigateToZone), drives in until the front ultrasound confirms
+    we are close enough, then backs out so the deposited boxes stay behind.
+
+    Use this during the late-game steal/sabotage phase when we are deliberately
+    routing to an opponent base regardless of whether it is visible right now.
+    """
+    import return_nav as ret
+
+    CLOSE_ENOUGH = 250  # mm
+    zone_marker_ids = ZONE_FIDUCIAL_MARKERS[target_zone]
+
+    # 1. GPS navigate to the zone centre
+    ret.NavigateToZone(robot, motors, target_zone)
+
+    # 2. Fine-approach: steer toward the nearest visible zone marker until close
+    while True:
+        distance_mm = robot.arduino.ultrasound_measure(2, 3)
+        if 0 < distance_mm < CLOSE_ENOUGH:
+            halt(motors)
+            break
+
+        markers = robot.camera.see()
+        zone_markers = [m for m in markers if m.id in zone_marker_ids]
+
+        if not zone_markers:
+            # NavigateToZone got us close — nudge straight in
+            move_straight(motors, 0.4, forwards=True, duration=0.2)
+            break
+
+        target = min(zone_markers, key=lambda m: m.position.distance)
+        move_angle(motors, 0.5, -target.position.horizontal_angle)
+        time.sleep(0.05)
+
+    # 3. Back out so deposited boxes stay in the zone
+    move_straight(motors, 0.6, forwards=False, duration=0.4)
+    halt(motors)
 
 
 def autonomous_start_sequence(motors, servo):
@@ -257,3 +318,12 @@ def autonomous_start_sequence(motors, servo):
 
     # 12. Drive forward to return to base (3.5s)
     move_straight(motors, 1.0, forwards=True, duration=3.5)
+
+    # 13. Back up slightly to leave collected boxes behind (0.4s)
+    move_straight(motors, 0.6, forwards=False, duration=0.4)
+    halt(motors)
+    time.sleep(0.1)
+
+    # 14. Rotate pi/2 anticlockwise so the robot faces out from base, leaving
+    #     any deposited boxes in the zone behind it.
+    rotate_angle(motors, math.pi / 2, 0.8, clockwise=False)

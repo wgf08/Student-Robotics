@@ -1,4 +1,4 @@
-from sr.robot3 import BRAKE, COAST, INPUT, OUTPUT, A0, A1
+from sr.robot3 import BRAKE, COAST, INPUT, OUTPUT, A0, A1, A2
 import math
 import time
 from info import *
@@ -73,10 +73,9 @@ def rotate_angle(motors, theta, power, clockwise=True):
 # Accelerometer-assisted distance movement
 # ─────────────────────────────────────────────────────────────────────────────
 
-# FIX: removed the duplicate integer pin definitions (0, 1) that appeared before
-# the correct A0/A1 constants. The A0/A1 import is now at the top of the file.
-ACCEL_PIN_X      = A0      # forward axis of the accelerometer
-ACCEL_PIN_Y      = A1      # lateral axis (set None if unavailable)
+# Hardware wiring: accelerometer SDA → A1 (forward axis), SCL → A2 (lateral axis).
+ACCEL_PIN_X      = A1      # forward axis of the accelerometer  (SDA → A1)
+ACCEL_PIN_Y      = A2      # lateral axis of the accelerometer  (SCL → A2)
 
 # ADXL335 on 5 V: 0 g = ~512 counts, ~61 counts/g.
 # ADXL335 on 3.3 V: 0 g = ~512 counts, ~102 counts/g.  Tune on your robot.
@@ -93,7 +92,7 @@ MOVE_TIMEOUT_S   = 10.0
 def _read_accel_g(robot):
     """
     Read both accelerometer axes, return (ax_g, ay_g).
-    ay_g is 0.0 when ACCEL_PIN_Y is None.
+    SDA (forward axis) is on A1, SCL (lateral axis) is on A2.
     """
     robot.arduino.pins[ACCEL_PIN_X].mode = INPUT
     if ACCEL_PIN_Y is not None:

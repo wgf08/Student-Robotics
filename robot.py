@@ -6,7 +6,7 @@ from sr.robot3 import Robot, Colour, LED_A, LED_B, LED_C, COMP, DEV
 from movement import *
 from utility import *
 from info import *
-from actions import consume, avoid, dump, return_loop, autonomous_start_sequence
+from actions import consume, avoid, return_loop, autonomous_start_sequence, dump_navigate, dump_opportunistic
 from servo import setup_servo, initialise_servo
 from strategies import (
     find_and_collect,

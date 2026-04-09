@@ -68,8 +68,8 @@ def consume(robot, marker_id, motors, method = 'indirect'):
 
         #Move Forward using accelerometer-assisted distance estimate
         x = sample_xyz(box)[1]
-        move_distance(motors, 1, box.position.horizontal_angle, x, robot)
-        move_angle(motors, 0.5, box.position.horizontal_angle)
+        move_distance(motors, 1, -box.position.horizontal_angle, x, robot)
+        move_angle(motors, 0.45, -box.position.horizontal_angle)
 
         #Continue until Box can no longer be seen — use None check, not exception
         while True:
@@ -88,7 +88,7 @@ def consume(robot, marker_id, motors, method = 'indirect'):
             box = find_marker(markers, marker_id)
             if box is None:
                 return 0
-            move_distance(motors, 1, box.position.horizontal_angle,
+            move_distance(motors, 1, -box.position.horizontal_angle,
                           box.position.distance, robot)
             # Re-check — if the box is gone after the move, we collected it
             markers = robot.camera.see()
@@ -108,7 +108,7 @@ def consume(robot, marker_id, motors, method = 'indirect'):
                 box = find_marker(markers, marker_id)
                 if box is None:
                     return 0
-            move_distance(motors, 0.5, box.position.horizontal_angle,
+            move_distance(motors, 0.5, -box.position.horizontal_angle,
                           box.position.distance, robot)
             markers = robot.camera.see()
             if find_marker(markers, marker_id) is None:
@@ -144,114 +144,6 @@ def avoid(robot, marker_id, motors):
         time.sleep(0.01)
     clear_queue(motors)
 
-def return_to_zone(robot, zone, motors, direction = 'cw'):
-
-    distance_mm = robot.arduino.ultrasound_measure(2,3)
-    print(robot.arduino.ultrasound_measure(2,3))
-    if distance_mm <350 and distance_mm!=0:
-       move_straight(motors, power=-0.25)
-       robot.sleep(0.5)
-       rotate_angle(motors, 0.4, 1, True)
-       return (0.1, direction)
-
-
-    base_ids = ZONE_FIDUCIAL_MARKERS[zone]
-    YAW_RANGE = 0.7
-
-    try:
-        print('101')
-        markers = sorted_boxes(robot.camera.see())[3]
-        print('103')
-        m = markers[0]
-        x, y ,z = wall_xyz(m)
-        print(y, m.id)
-        a = set([m.id for m in sorted_boxes(robot.camera.see())[3]]) & set(base_ids)
-        y2 = math.inf
-        if a:
-            # Find the actual marker object for the closest matching wall marker
-            all_wall_markers = sorted_boxes(robot.camera.see())[3]
-            a_marker = next((wm for wm in all_wall_markers if wm.id in a), None)
-            if a_marker is not None:
-                y2 = wall_xyz(a_marker)[0]
-        print('108')
-        if (not a) or (abs(y2) > 1100):
-            print(not a)
-            print((abs(y))> 1000)
-            if m.id % 5 == 1 and m.position.distance > 1600:
-                for box in markers: 
-                    print('114')
-                    if box.id%5 == 0: m = box
-            target_markers = ZONE_FIDUCIAL_MARKERS[zone]
-            distances_cw = [(marker - m.id) % 20 for marker in target_markers]
-            distances_ccw = [(m.id - marker) % 20 for marker in target_markers]
-
-
-            min_cw = min(distances_cw)
-            min_ccw = min(distances_ccw)
-            direction = 'cw' if min_cw <= min_ccw else 'acw'
-            curr_dir = 'cw' if m.orientation.yaw < 0 else 'acw'
-
-            if curr_dir != direction and x < 100:
-                print(curr_dir, direction, m, m.orientation.yaw)
-                rotate_angle(motors, math.pi, 1, True)
-                return (0.1,direction)
-
-            angle = ((math.pi)/2+m.orientation.yaw)*2.5 if direction == 'cw' else ((math.pi)+m.orientation.yaw)*2.5
-
-            if a:
-                rotate_angle(motors, math.pi/1.3, 1, False)
-                return (0.2, direction)
-            elif x < 900 or (x < 1600 and abs(m.orientation.yaw) > YAW_RANGE):
-                print(f'1 {direction}')
-                rotate_angle(motors, angle, 1, True)
-                move_straight(motors,0.4)
-                return (0.8,direction)
-            elif x>1600 and (m.id%5 == 1 or m.id%5 == 2):
-                print('3')
-                rotate_angle(motors, abs(m.position.horizontal_angle)*1.4, 1, m.position.horizontal_angle > 0)
-                move_straight(motors,0.4)
-                return (0.4,direction)
-            elif x > 1600 and abs(m.orientation.yaw) < YAW_RANGE:
-                print(f'2 {x} {m.id}')
-                rotate_angle(motors, abs(m.position.horizontal_angle)*1.3, 1, m.position.horizontal_angle > 0)
-                move_straight(motors,0.4)
-                return (0.4,direction)
-            else:
-                print(f'Condition 4 executed. Stats \n M_ID = {m.id}   X: {x}   YAW: {m.orientation.yaw}')
-                move_straight(motors,0.4)
-                return (0.2,direction)
-                
-
-        else:
-            
-            print(y)
-            distance_mm = robot.arduino.ultrasound_measure(2,3)
-            marker = find_marker(robot.camera.see(), m.id)
-            while marker is not None and marker.position.distance > 400:
-                marker.position.distance
-                marker = find_marker(robot.camera.see(), m.id)
-                move_straight(motors,0.2)
-            while distance_mm > 800 or distance_mm == 0:
-                    distance_mm = robot.arduino.ultrasound_measure(2,3)
-                    move_straight(motors,0.3)
-                    continue
-            
-
-            halt(motors)
-            move_straight(motors, power=-0.5)
-            return (0.1, direction)
-
-    except Exception as e:
-        print(e)
-        print('FAILURE - NOTHING SEEN')
-        rand = random.random()
-        if rand<=0.3:
-            move_straight(motors, power=-0.2)
-            robot.sleep(0.5)
-            print('moving back?')
-        rotate_angle(motors, math.pi/1.2, 1, direction == 'acw')
-        return (0.1,direction)
-
 def execute_timed_function(func, time_to_run):
     start_time = start_timer()
     curr_time = time.time()
@@ -262,12 +154,9 @@ def execute_timed_function(func, time_to_run):
         else: curr_time = time.time()
     return 0 
 
-def return_loop(robot, zone, motors, direction = 'cw'):
-    while True:
-        rest, direction = return_to_zone(robot, zone, motors, direction)
-        robot.sleep(rest)
-        halt(motors)
-        robot.sleep(0.05)
+def return_loop(robot, zone, motors):
+    import return_nav as ret
+    ret.NavigateToZone(robot, motors, zone)
         
 def idle(robot, motors):
     # Setup first run flag

@@ -18,6 +18,7 @@ from strategies import (
     steal_from_base,
     idle,
 )
+import strategies
 import time
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -94,10 +95,10 @@ while elapsed() < GAME_LENGTH:
             
             _bank_budget = GAME_LENGTH - elapsed()
             # FIX: Updated to reference the correctly spelled module
-            if CURRENT_ROBOT_VALUE > 0 and _bank_budget > 10:
+            if strategies.CURRENT_ROBOT_VALUE > 0 and _bank_budget > 10:
                 log(f"Banking stolen boxes back at base!")
                 return_loop(robot, robot.zone, motors)
-                CURRENT_ROBOT_VALUE = 0
+                strategies.CURRENT_ROBOT_VALUE = 0
 
 log("Match ended. Stopping motors.")
 halt(motors)

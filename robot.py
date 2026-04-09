@@ -8,7 +8,7 @@ from utility import *
 from info import *
 from actions import consume, avoid, dump, return_loop, autonomous_start_sequence
 from servo import setup_servo, initialise_servo
-from stragegies import (
+from strategies import (
     find_and_collect,
     collect_until_threshold,
     assess_and_sabotage,
@@ -17,7 +17,7 @@ from stragegies import (
     steal_from_base,
     idle,
 )
-import stragegies
+import strategies
 import time
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -95,10 +95,10 @@ while elapsed() < GAME_LENGTH:
             # If we collect something we should probably bank it here if time permits
             # Currently relies on the steal_from_base's consumption.
             _bank_budget = GAME_LENGTH - elapsed()
-            if stragegies.CURRENT_ROBOT_VALUE > 0 and _bank_budget > 10:
+            if strategies.CURRENT_ROBOT_VALUE > 0 and _bank_budget > 10:
                 log(f"Banking stolen boxes back at base!")
                 return_loop(robot, robot.zone, motors)
-                stragegies.CURRENT_ROBOT_VALUE = 0
+                strategies.CURRENT_ROBOT_VALUE = 0
 
 log("Match ended. Stopping motors.")
 halt(motors)

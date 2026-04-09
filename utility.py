@@ -69,7 +69,7 @@ def find_position(markers):
         return None
     m = min(markers, key=lambda m: m.position.distance)
     md = m.position.distance
-    ma = m.position.horizontal_angle
+    ma =-m.position.horizontal_angle
 
     return m.id, md, ma
 
@@ -116,8 +116,8 @@ def wall_xyz(marker):
         along_wall_distance     (robot position along wall)
     """
     d   = marker.position.distance
-    ha  = marker.position.horizontal_angle
-    yaw = marker.orientation.yaw
+    ha  = -marker.position.horizontal_angle
+    yaw = -marker.orientation.yaw
 
     # ha - yaw gives the angle between the marker vector and the wall normal
     perp  = d * math.cos(ha - yaw)   # component along wall normal
@@ -128,16 +128,16 @@ def wall_xyz(marker):
 def sample_xyz(marker):
     HALF_BOX = 65
     d   = marker.position.distance
-    ha  = marker.position.horizontal_angle
-    hv  = marker.position.vertical_angle
-    yaw = marker.orientation.yaw
+    ha  = -marker.position.horizontal_angle
+    hv  = -marker.position.vertical_angle
+    yaw = -marker.orientation.yaw
 
     # 3D position of the marker itself
     horiz = d * math.cos(hv)
     mx    = horiz * math.sin(ha)
     my    = horiz * math.cos(ha)
     mz    = d     * math.sin(hv)
-    pitch = marker.orientation.pitch
+    pitch = -marker.orientation.pitch
 
     # offset back along the face normal to get box centre
     if abs(pitch) > 0.4:   # pitched significantly = top face

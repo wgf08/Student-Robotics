@@ -12,11 +12,11 @@ MARKER_FACING = {
 
     **{i: 3 * math.pi / 2 for i in range(0, 5)},
 
-    **{i: 0.0 for i in range(5, 10)},
+    **{i: math.pi for i in range(5, 10)},
 
     **{i:  math.pi / 2 for i in range(10, 15)},
 
-    **{i: math.pi/2 for i in range(15, 20)},
+    **{i: 0 for i in range(15, 20)},
 }
 
 ZONE_FIDUCIAL_MARKERS = {
@@ -32,3 +32,14 @@ ZONE_FIDUCIAL_MARKERS = {
 }
 
 MARKER_TO_ZONE = {marker: zone for zone, markers in ZONE_FIDUCIAL_MARKERS.items() for marker in markers}
+
+ZONE_BOUNDARIES = {
+    0: [(0, 4575), (1000, 2575)],
+    1:  [(2575, 4575), (4575, 3575)],
+    2: [(3575, 2000), (4575, 0)],
+    3: [(0, 0), (2000, 1000)]
+}
+
+PLATFORM_BOUNDARIES = [
+    1677.5, 1677.5, 2897.5, 2897.5
+]

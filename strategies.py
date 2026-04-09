@@ -29,7 +29,7 @@ CURRENT_BASE_VALUE  = 0  # cumulative net value deposited in our own base so far
 
 def _is_high(marker):
     """True if the marker is on a raised edge rather than the floor."""
-    return marker.position.vertical_angle > HIGH_BOX_ANGLE_THRESHOLD
+    return -marker.position.vertical_angle > HIGH_BOX_ANGLE_THRESHOLD
 
 
 def _is_our_sample(marker):
@@ -447,7 +447,7 @@ def steal_from_base(robot, motors, target_zone):
     if zone_markers:
         # We can see the base! Go straight towards the nearest marker.
         target = min(zone_markers, key=lambda m: m.position.distance)
-        move_angle(motors, 0.6, target.position.horizontal_angle)
+        move_angle(motors, 0.6, -target.position.horizontal_angle)
         time.sleep(0.3)
         halt(motors)
     else:
